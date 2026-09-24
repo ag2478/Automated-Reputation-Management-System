@@ -9,41 +9,6 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 
-//
-//ag2478 adding rabbitmq websocket
-//
-
-    
-    <script src="https://cdn.jsdelivr.net/npm/@stomp/stompjs@6.0.0/bundles/stomp.umd.min.js"></script>
-<script>
-    const client = new StompJs.Client({
-        brokerURL: 'ws://192.168.1.113:15674/ws',
-        connectHeaders: {
-            login: 'repo_user',
-            passcode: 'repo_pass', 
-        },
-        debug: function (str) {
-            console.log(str);
-        },
-        onConnect: () => {
-            console.log('Successfully connected to RabbitMQ WebSockets!');
-            
-            // Example: Subscribe to a reputation queue
-            client.subscribe('/topic/reputation', (message) => {
-                console.log('Message received: ' + message.body);
-            });
-        },
-        onStompError: (frame) => {
-            console.error('Broker error: ' + frame.headers['message']);
-        }
-    });
-
-    client.activate();
-</script>
-
-//
-//ag2478 ------------- end of line -------------
-//
     
 <body>
 
