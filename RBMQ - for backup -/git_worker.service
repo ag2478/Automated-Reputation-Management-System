@@ -1,0 +1,13 @@
+[Unit]
+Description=RabbitMQ Git Worker
+After=network.target
+
+[Service]
+User=dev
+WorkingDirectory=/home/dev
+ExecStart=/usr/bin/python3 -u /home/dev/git_worker.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

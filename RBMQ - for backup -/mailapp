@@ -1,0 +1,18 @@
+server {
+    listen 80;
+    listen [::]:80;
+
+    listen 7812;
+    listen [::]:7812; ## special port for milestone2
+
+    # Points directly to the Git repository where RabbitMQ pulls updates
+    root /home/dev/Automated-Reputation-Management-System/frontend;
+    index index.html index.htm;
+
+    server_name _;
+
+    location / {
+        # Attempts to serve the file, falls back to a 404 error
+        try_files $uri $uri/ =404;
+    }
+}
