@@ -1,0 +1,8 @@
+[Unit]
+After=network.target
+[Service]
+User=root
+ExecStart=/usr/bin/python3 -u /usr/local/bin/rmq_agent.py
+Restart=always
+[Install]
+WantedBy=multi-user.target
