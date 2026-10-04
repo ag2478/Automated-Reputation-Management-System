@@ -13,4 +13,12 @@
 # git_worker.service on vm for systemctl to keep it running ON BOOT
 # mailapp on vm for nginx to host the site (point to 7182)
 
+# 10/1 - Josue10-18
+# database VM is ubuntu, mariadb for db, rabbitmq for messaging (python scripts coming)
+# created database: reputation_app
+# created app user: arms_app (SELECT/INSERT/UPDATE/DELETE only), password NOT in repo
+# bind-address = 0.0.0.0 in 50-server.cnf so other VMs can connect on 3306
+# schema.sql in /database to build tables: users, customers, email_events, logs
+# customers table drives the 3 nudges / 2 week timer (status, nudges_sent, next_send_at)
+# TODO: rabbitmq read/write script, log to db, hook into start script
 
