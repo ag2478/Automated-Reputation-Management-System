@@ -18,7 +18,13 @@ def on_request(ch, method, props, body):
     else:
         out = "Invalid action or service requested."
 
-    ch.basic_publish('', props.reply_to, pika.BasicProperties(correlation_id=props.correlation_id), out)
+# Return the terminal output to the controller
+    ch.basic_publish(
+        exchange='', 
+        routing_key=props.reply_to, 
+        properties=pika.BasicProperties(correlation_id=props.correlation_id), 
+        body=out
+    )    
     ch.basic_ack(method.delivery_tag)
 
 conn = pika.BlockingConnection(pika.ConnectionParameters(RMQ_HOST, 5672, '/', pika.PlainCredentials('repo_user', 'repo_pass')))
