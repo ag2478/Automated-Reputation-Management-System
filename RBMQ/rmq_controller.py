@@ -20,7 +20,14 @@ class Controller:
     def send(self, target, action, service):
         self.resp, self.corr_id = None, str(uuid.uuid4())
         payload = json.dumps({"action": action, "service": service})
-        self.ch.basic_publish('rmq_control', target, pika.BasicProperties(reply_to=self.q, correlation_id=self.corr_id), payload)
+
+        self.ch.basic_publish(
+            exchange='rmq_control', 
+            routing_key=target, 
+            properties=pika.BasicProperties(reply_to=self.q, correlation_id=self.corr_id), 
+            body=payload
+        )
+
         while self.resp is None: self.conn.process_data_events(time_limit=None)
         return self.resp
 
