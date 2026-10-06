@@ -1,44 +1,26 @@
-import pika, uuid, json
+import pika, subprocess, socket
 
-RMQ_HOST = 'ag2478-dev.local'
-## cant do hardcoded IP with inconsistent DHCP
-## tell group to install avahi and change hostnames
+# UPDATE THIS to the Bridged IP address of ag2478-dev
+BROKER_IP = '192.168.x.x' 
+MY_QUEUE = socket.gethostname()     
 
-class Controller:
-    def __init__(self):
-        self.conn = pika.BlockingConnection(pika.ConnectionParameters(RMQ_HOST, 5672, '/', pika.PlainCredentials('repo_user', 'repo_pass')))
-        self.ch = self.conn.channel()
-        self.ch.exchange_declare('rmq_control', 'direct')
-        self.q = self.ch.queue_declare('', exclusive=True).method.queue
-        self.ch.basic_consume(self.q, self.on_resp, auto_ack=True)
-        self.resp = None
-        self.corr_id = None
+def on_request(ch, method, props, body):
+    action = body.decode()
+    if action in ["start", "stop", "restart", "status"]:
+        output = subprocess.getoutput(f"systemctl --no-pager {action} rabbitmq-server")
+        if not output: output = f"{action} command sent successfully."
+    else:
+        output = "Invalid command."
+        
+    ch.basic_publish(exchange='', routing_key=props.reply_to,
+                     properties=pika.BasicProperties(correlation_id=props.correlation_id),
+                     body=output)
+    ch.basic_ack(delivery_tag=method.delivery_tag)
 
-    def on_resp(self, ch, method, props, body):
-        if self.corr_id == props.correlation_id: self.resp = body.decode()
+creds = pika.PlainCredentials('repo_user', 'repo_pass')
+conn = pika.BlockingConnection(pika.ConnectionParameters(BROKER_IP, credentials=creds))
+ch = conn.channel()
 
-    def send(self, target, action, service):
-        self.resp, self.corr_id = None, str(uuid.uuid4())
-        payload = json.dumps({"action": action, "service": service})
-
-        self.ch.basic_publish(
-            exchange='rmq_control', 
-            routing_key=target, 
-            properties=pika.BasicProperties(reply_to=self.q, correlation_id=self.corr_id), 
-            body=payload
-        )
-
-        while self.resp is None: self.conn.process_data_events(time_limit=None)
-        return self.resp
-
-if __name__ == "__main__":
-    c = Controller()
-    while True:
-        target = input("\nTarget Hostname (e.g., ag2478-test) or 'q': ").strip()
-        if target.lower() == 'q': break
-
-        service = input("Service (nginx/mariadb/rabbitmq-server): ").strip()
-        action = input("Action (start/stop/restart/status): ").strip()
-
-        if target and action and service:
-            print(f"\n[Output from {target}]:\n{c.send(target, action, service)}")
+ch.queue_declare(queue=MY_QUEUE)
+ch.basic_consume(queue=MY_QUEUE, on_message_callback=on_request)
+ch.start_consuming()
