@@ -1,0 +1,9 @@
+ON EACH VM
+
+sudo apt install rabbitmq-server -y
+
+sudo systemctl enable --now rabbitmq-server
+
+sudo rabbitmqctl add_user repo_user repo_pass
+sudo rabbitmqctl set_permissions -p / repo_user ".*" ".*" ".*"
+sudo rabbitmqctl set_user_tags repo_user administrator
