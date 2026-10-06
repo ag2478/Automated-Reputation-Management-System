@@ -1,0 +1,18 @@
+ON EACH VM
+
+rmq agent install
+
+pull latest git repo ontu VMs
+
+cd Automated-Reputation-Management-System/RBMQ/
+
+sudo rm /usr/local/bin/rmq_agent.py
+
+sudo cp rmq_agent.py /usr/local/bin/
+
+sudo rm /etc/systemd/system/rmq-agent.service
+
+sudo cp rmq-agent.service /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now rmq-agent

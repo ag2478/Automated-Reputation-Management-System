@@ -1,0 +1,12 @@
+[Unit]
+Description=ARMS back end (reads messages from the RabbitMQ queue)
+After=network.target
+
+[Service]
+User=dev
+WorkingDirectory=/home/dev/Automated-Reputation-Management-System/Backend
+ExecStart=/usr/bin/python3 -u receive.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
