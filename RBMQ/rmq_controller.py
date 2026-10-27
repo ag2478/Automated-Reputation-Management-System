@@ -2,7 +2,7 @@ import pika, uuid, json
 
 # going to be ag2478-dev or my laptop
 # DNS solves random ip on network
-BROKER_HOST = 'ag2478-dev.local' 
+BROKER_HOST = '10.211.59.183' 
 
 class RPC:
     def __init__(self):
