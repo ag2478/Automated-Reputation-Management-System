@@ -22,3 +22,12 @@
 # customers table drives the 3 nudges / 2 week timer (status, nudges_sent, next_send_at)
 # TODO: rabbitmq read/write script, log to db, hook into start script
 
+# 10/26 - Josue10-18
+# database VM: jxo-dev, MariaDB, database reputation_app, user arms_app (password NOT in repo)
+# reachable over ZeroTier VPN at 10.211.59.206 port 3306 (ufw allows 10.211.59.0/24)
+# data lives on the VM's disk (/var/lib/mariadb), survives reboots
+# users table: username, email, password_hash (bcrypt, never plain text), business_name
+# database/arms_db.py: register_user(), login_user(), log_event() helper (not used by auth_worker.py)
+# registered users verified in the table after front-end registration
+# rmq_agent.py runs on this VM as rmq-agent.service so compose.py can start/check mariadb
+# python3 compose/compose.py start|status starts and checks all four services
