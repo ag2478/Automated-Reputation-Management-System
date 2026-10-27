@@ -12,7 +12,7 @@ def on_request(ch, method, props, body):
         
         # error check commands cause i cant spell
         valid_actions = ["start", "stop", "restart", "status"]
-        valid_services = ["nginx", "mariadb", "rabbitmq-server"]
+        valid_services = ["nginx", "mariadb", "rabbitmq-server", "arms-backend"]
         
         if action in valid_actions and service in valid_services:
             output = subprocess.getoutput(f"systemctl --no-pager {action} {service}")
