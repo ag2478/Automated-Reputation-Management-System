@@ -10,11 +10,11 @@ import pika
 BROKER_HOST = "ag2478-dev.local"
 
 # VM hostname -> services on that VM (run "hostname" on each VM to check)
+# (RabbitMQ on ag2478-dev is the messenger itself, so it has no agent)
 VMS = {
-    "ag2478-dev": ["rabbitmq-server"],
-    "aks55-dev": ["nginx"],
-    "jxo-dev": ["mariadb"],
+    "aks55-dev": ["nginx", "arms-frontend"],
     "ojo-dev": ["arms-backend"],
+    "jxo-dev": ["mariadb"],
 }
 
 action = sys.argv[1] if len(sys.argv) > 1 else "status"
@@ -27,6 +27,8 @@ reply_queue = channel.queue_declare(queue="", exclusive=True).method.queue
 answers = {}
 channel.basic_consume(queue=reply_queue, auto_ack=True,
                       on_message_callback=lambda ch, m, props, body: answers.update({props.correlation_id: body.decode()}))
+
+print("--- rabbitmq-server on ag2478-dev ---\nup: this script is talking to the other VMs through it")
 
 for vm, services in VMS.items():
     for service in services:
