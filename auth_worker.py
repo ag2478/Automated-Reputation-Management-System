@@ -4,10 +4,10 @@ import bcrypt
 import mysql.connector
 import uuid
 
-db = mysql.connector.connect(host="127.0.0.1", user="test", password="test", database="it490_tracker")
+db = mysql.connector.connect(host="10.211.59.206", user="arms_app", password="ARMS2026", database="reputation_app")
 cursor = db.cursor()
 
-connection = pika.BlockingConnection(pika.ConnectionParameters('127.0.0.1'))
+connection = pika.BlockingConnection(pika.ConnectionParameters('10.211.59.183', credentials=pika.PlainCredentials('repo_user', 'repo_pass')))
 channel = connection.channel()
 channel.queue_declare(queue='fe_to_be_queue', durable=True)
 
@@ -15,6 +15,14 @@ def on_request(ch, method, props, body):
     data = json.loads(body)
     action = data.get('action')
     response = {'status': 'error', 'message': 'Unknown action'}
+
+    # reconnect if MariaDB was restarted; if it's down, answer instead of crashing
+    try:
+        db.ping(reconnect=True, attempts=2, delay=1)
+        cursor = db.cursor()
+    except Exception:
+        action = None
+        response = {'status': 'error', 'message': 'Database is down'}
 
     if action == 'register':
         username, email = data['username'], data['email']
@@ -26,7 +34,7 @@ def on_request(ch, method, props, body):
             response = {'status': 'success'}
         except Exception as e:
             response = {'status': 'error', 'message': str(e)}
- 
+
     elif action == 'login':
         username = data['username']
         try:
@@ -39,7 +47,7 @@ def on_request(ch, method, props, body):
                 response = {'status': 'error', 'message': 'Invalid credentials'}
         except Exception as e:
             response = {'status': 'error', 'message': str(e)}
- 
+
     ch.basic_publish(exchange='', routing_key=props.reply_to, properties=pika.BasicProperties(correlation_id=props.correlation_id), body=json.dumps(response))
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
