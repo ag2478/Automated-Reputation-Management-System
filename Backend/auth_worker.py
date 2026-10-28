@@ -4,10 +4,11 @@ import bcrypt
 import mysql.connector
 import uuid
 
-db = mysql.connector.connect(host="10.211.59.206", user="arms_app", password="ARMS2026", database="reputation_app")
+# VM names, not IPs: each VM's /etc/hosts maps jxo-dev and ag2478-dev to their ZeroTier IPs
+db = mysql.connector.connect(host="jxo-dev", user="arms_app", password="ARMS2026", database="reputation_app")
 cursor = db.cursor()
 
-connection = pika.BlockingConnection(pika.ConnectionParameters('10.211.59.183', credentials=pika.PlainCredentials('repo_user', 'repo_pass')))
+connection = pika.BlockingConnection(pika.ConnectionParameters('ag2478-dev', credentials=pika.PlainCredentials('repo_user', 'repo_pass')))
 channel = connection.channel()
 channel.queue_declare(queue='fe_to_be_queue', durable=True)
 
