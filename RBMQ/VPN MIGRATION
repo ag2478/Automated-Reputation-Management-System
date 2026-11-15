@@ -1,0 +1,14 @@
+#copy this block and edit the first hostname to your own
+#run it all and then send me the tailscale link it shows you
+#after you run the command it gives you at the end of install 
+# contact ANDY to add your host to the vpn network
+
+
+export VM_HOST="CHANGE THIS TO YOUR VM HOSTNAME"
+
+sudo systemctl stop zerotier-one 2>/dev/null || true
+sudo systemctl disable zerotier-one 2>/dev/null || true
+
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo hostnamectl set-hostname "$VM_HOST"
+sudo tailscale up --hostname="$VM_HOST"
