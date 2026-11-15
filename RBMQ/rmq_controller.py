@@ -1,75 +1,120 @@
-import pika, uuid, json
+import pika
+import uuid
+import time
+import sys
 
-# going to be ag2478-dev or my laptop
-# DNS solves random ip on network
-BROKER_HOST = '10.211.59.183' 
+CLUSTER_HOSTS = [
+    'ag2478-dev',
+    'ag2478-test',
+    'ag2478-prod',
+    'aks55-dev',
+    'ojo-dev',
+    'jxo-dev'
+]
 
-class RPC:
-    def __init__(self):
-        creds = pika.PlainCredentials('repo_user', 'repo_pass')
-        self.conn = pika.BlockingConnection(pika.ConnectionParameters(BROKER_HOST, credentials=creds))
-        self.ch = self.conn.channel()
-        self.reply_q = self.ch.queue_declare(queue='', exclusive=True).method.queue
-        self.ch.basic_consume(queue=self.reply_q, on_message_callback=self.on_reply, auto_ack=True)
-        self.resp = None    
-        #ALL OF THIS ^^^^ for it to undersand why im asking?!?!?!
+class RpcClient:
+    def __init__(self, target_queue):
+        self.credentials = pika.PlainCredentials('repo_user', 'repo_pass')
+        self.connection = None
 
-    def on_reply(self, ch, method, props, body):
-        if self.corr_id == props.correlation_id:
-            self.resp = body.decode('utf-8')
+        for host in CLUSTER_HOSTS:
+            try:
+                self.connection = pika.BlockingConnection(
+                    pika.ConnectionParameters(
+                        host=host,
+                        port=5672,
+                        credentials=self.credentials,
+                        socket_timeout=4
+                    )
+                )
+                print(f" [✔] Routing RPC via active broker hostname '{host}'")
+                break
+            except Exception:
+                continue
 
-    def call(self, target_queue, action, service):
-        self.resp, self.corr_id = None, str(uuid.uuid4())
-        
-        # I STILL DONT UNDERSTAND JSON
-        payload = json.dumps({"action": action, "service": service})
-        
-        self.ch.basic_publish(
-            exchange='', 
-            routing_key=target_queue,
-            properties=pika.BasicProperties(reply_to=self.reply_q, correlation_id=self.corr_id),
-            body=payload
+        if not self.connection:
+            raise RuntimeError(f"No active RabbitMQ broker reachable across hostnames: {', '.join(CLUSTER_HOSTS)}")
+
+        self.channel = self.connection.channel()
+        result = self.channel.queue_declare(queue='', exclusive=True)
+        self.callback_queue = result.method.queue
+        self.channel.basic_consume(
+            queue=self.callback_queue,
+            on_message_callback=self.on_response,
+            auto_ack=True
         )
-        while self.resp is None: 
-            self.conn.process_data_events(time_limit=None)
-        return self.resp
+        self.response = None
+        self.corr_id = None
+        self.target_queue = target_queue
+
+    def on_response(self, ch, method, props, body):
+        if self.corr_id == props.correlation_id:
+            self.response = body
+
+    def call(self, action, service, timeout=15.0):
+        self.response = None
+        self.corr_id = str(uuid.uuid4())
+        self.channel.basic_publish(
+            exchange='',
+            routing_key=self.target_queue,
+            properties=pika.BasicProperties(
+                reply_to=self.callback_queue,
+                correlation_id=self.corr_id,
+            ),
+            body=f"{action}:{service}"
+        )
+        start_time = time.time()
+        while self.response is None:
+            self.connection.process_data_events(time_limit=0.5)
+            if time.time() - start_time > timeout:
+                return None
+        return self.response
+
+def main():
+    print("=== Tailscale RabbitMQ Infrastructure Manager (Hostname Mode) ===")
+    print(f"Known Hosts: {', '.join(CLUSTER_HOSTS)}")
+
+    # Support CLI args (python3 rmq_controller.py <host> <service> <action>) or interactive input
+    if len(sys.argv) == 4:
+        target_host = sys.argv[1].strip()
+        svc_input = sys.argv[2].strip().lower()
+        act_input = sys.argv[3].strip().lower()
+    else:
+        target_host = input("Enter target hostname: ").strip()
+        if not target_host:
+            print(" [!] Hostname cannot be empty.")
+            return
+
+        svc_input = input("Select service (1: mariadb, 2: rabbitmq, 3: nginx): ").strip().lower()
+        act_input = input("Select action (1: start, 2: stop, 3: restart): ").strip().lower()
+
+    svc_map = {
+        '1': 'mariadb', '2': 'rabbitmq-server', '3': 'nginx',
+        'mariadb': 'mariadb', 'rabbitmq': 'rabbitmq-server',
+        'rabbitmq-server': 'rabbitmq-server', 'nginx': 'nginx'
+    }
+    act_map = {
+        '1': 'start', '2': 'stop', '3': 'restart',
+        'start': 'start', 'stop': 'stop', 'restart': 'restart'
+    }
+
+    service = svc_map.get(svc_input)
+    action = act_map.get(act_input)
+
+    if not service or not action:
+        print(" [!] Invalid service or action selection.")
+        return
+
+    print(f"Sending '{action}' for '{service}' to hostname '{target_host}'...")
+    try:
+        client = RpcClient(f"agent_{target_host}")
+        response = client.call(action, service)
+        if response:
+            print(f"\n [✔] Response from {target_host}:\n{response.decode()}")
+        else:
+            print(f" [!] RPC timed out waiting for {target_host}.")
+    except Exception as e:
+        print(f" [!] Error: {e}")
 
 if __name__ == '__main__':
-    rpc = RPC()
-    
-    service_menu = {"1": "nginx", "2": "rabbitmq-server", "3": "mariadb"}
-    action_menu = {"1": "status", "2": "restart", "3": "stop", "4": "start"}
-
-    # got to simplify this, i aint typing that shizz out agian
-    while True:
-        print("\n" + "="*40)
-        target = input("Enter target VM DNS/Hostname (or 'q' to quit): ").strip()
-        if target.lower() == 'q': break
-        if not target: continue
-
-        # I AM SICK OF TYPING
-        print("\nSelect Service:")
-        print("  1) Nginx")
-        print("  2) RabbitMQ")
-        print("  3) MariaDB")
-        s_choice = input("Choice (1-3): ").strip()
-        
-        if s_choice not in service_menu:
-            print("Invalid service choice.")
-            continue
-        
-        print("\nSelect Action:")
-        print("  1) Status\n  2) Restart\n  3) Stop\n  4) Start")
-        a_choice = input("Choice (1-4): ").strip()
-        
-        if a_choice not in action_menu:
-            print("Invalid action choice.")
-            continue
-            
-        service = service_menu[s_choice]
-        action = action_menu[a_choice]
-
-        #i have never done this much python, why do people do this?!
-        print(f"\n--- Output from {target} ({service}) ---")
-        print(rpc.call(target, action, service))
-        print("-" * 40)
+    main()
