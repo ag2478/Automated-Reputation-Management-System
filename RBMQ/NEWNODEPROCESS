@@ -1,0 +1,71 @@
+
+FIRST
+
+------------------------------------------------------------------------
+sudo sed -i 's/^127\.0\.1\.1/#127.0.1.1/' /etc/hosts
+------------------------------------------------------------------------
+
+[this redos your self map in hosts to force RBMQ to use the Tailscale IP]
+
+RUN THESE FOR FIREWALL RULES
+
+------------------------------------------------------------------------
+sudo ufw allow in on tailscale0 to any
+sudo ufw allow 41641/udp
+sudo ufw allow 4369,5672,15672,25672/tcp
+sudo ufw allow 35672:35682/tcp
+sudo ufw reload
+------------------------------------------------------------------------
+
+[dont ask just do]
+
+RUN THIS BLOCK TO JOIN CLUSTER
+
+------------------------------------------------------------------------
+sudo systemctl stop rabbitmq-server
+sudo rm -rf /var/lib/rabbitmq/mnesia
+
+echo "P3TLc96XfCPueRVe4TCHVscCX+3VLm6CRssjxpnZ+5J9W6Pl3xDe9K+x" | sudo tee /var/lib/rabbitmq/.erlang.cookie
+sudo chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie
+sudo chmod 400 /var/lib/rabbitmq/.erlang.cookie
+
+sudo mkdir -p /etc/rabbitmq
+cat << 'EOF' | sudo tee /etc/rabbitmq/rabbitmq.conf
+cluster_partition_handling = autoheal
+EOF
+
+cat << 'EOF' | sudo tee /etc/rabbitmq/advanced.config
+[
+  {os_mon, [
+    {start_cpu_sup, false},
+    {start_disksup, false},
+    {start_memsup, false}
+  ]}
+].
+EOF
+
+sudo systemctl start rabbitmq-server
+sudo rabbitmq-plugins enable rabbitmq_management
+------------------------------------------------------------------------
+
+RUN THIS BLOCK TO CHANGE PRIMARY NODE
+
+------------------------------------------------------------------------
+sudo rabbitmqctl stop_app
+sudo rabbitmqctl reset
+sudo rabbitmqctl join_cluster rabbit@ag2478-dev
+sudo rabbitmqctl start_app
+------------------------------------------------------------------------
+
+TESTS
+
+------------------------------------------------------------------------
+tailscale ping -c 2 ag2478-dev
+ping -c 2 ag2478-dev
+ping -c 2 ag2478-prod
+------------------------------------------------------------------------
+nc -zv ag2478-dev 4369 5672 25672
+sudo rabbitmq-diagnostics check_port_connectivity
+------------------------------------------------------------------------
+python3 -c "import pika; conn = pika.BlockingConnection(pika.ConnectionParameters(host='ag2478-dev', port=5672, credentials=pika.PlainCredentials('repo_user', 'repo_pass'), socket_timeout=5)); print('AMQP Connection OK:', conn.is_open); conn.close()"
+------------------------------------------------------------------------
