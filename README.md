@@ -37,3 +37,4 @@
 # jxo-dev is node 1 and holds all the data; config template: database/galera/70-arms-galera.cnf.template
 # check the cluster: sudo mariadb -e "SHOW STATUS LIKE 'wsrep_cluster_size';"  (3 = all nodes, 2 = minimum)
 # a plain systemctl restart mariadb fails on the first node while it is alone; use sudo galera_new_cluster
+# scripts/galera_start.sh joins the cluster if a peer is up, or bootstraps one if none is (run with sudo)
