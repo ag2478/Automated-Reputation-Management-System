@@ -3,12 +3,23 @@ import json
 import bcrypt
 import mysql.connector
 import uuid
+import os
+from dotenv import load_dotenv
 
-# VM names, not IPs: each VM's /etc/hosts maps jxo-dev and ag2478-dev to their ZeroTier IPs
-db = mysql.connector.connect(host="jxo-dev", user="arms_app", password="ARMS2026", database="reputation_app")
+# Load environment variables from the .env file
+load_dotenv()
+
+# VM names, not IPs: each VM's /etc/hosts maps jxo-dev and ag2478-dev to their Tailscale IPs
+db = mysql.connector.connect(
+    host="jxo-dev", 
+    user="arms_app", 
+    password=os.getenv("ARMS_DB_PASS"), 
+    database="reputation_app"
+)
 cursor = db.cursor()
 
-connection = pika.BlockingConnection(pika.ConnectionParameters('ag2478-dev', credentials=pika.PlainCredentials('repo_user', 'repo_pass')))
+credentials = pika.PlainCredentials(os.getenv('RABBITMQ_USER'), os.getenv('RABBITMQ_PASS'))
+connection = pika.BlockingConnection(pika.ConnectionParameters('ag2478-dev', credentials=credentials))
 channel = connection.channel()
 channel.queue_declare(queue='fe_to_be_queue', durable=True)
 
