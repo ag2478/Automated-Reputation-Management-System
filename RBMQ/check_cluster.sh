@@ -1,6 +1,6 @@
 RBMQ_DIR="$HOME/Automated-Reputation-Management-System/RBMQ"
 CONTROLLER="$RBMQ_DIR/rmq_controller.py"
-HOSTS=("ag2478-dev" "ag2478-test" "ag2478-prod" "aks55-dev" "ojo-dev" "jxo-dev")
+HOSTS=("ag2478-dev" "ag2478-test" "ag2478-prod" "aks55-dev-1" "ojo-dev" "jxo-dev")
 PORTS=(4369 5672 15672 25672)
 
 GREEN="\033[1;32m"
