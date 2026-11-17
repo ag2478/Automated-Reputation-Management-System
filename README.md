@@ -31,3 +31,9 @@
 # registered users verified in the table after front-end registration
 # rmq_agent.py runs on this VM as rmq-agent.service so compose.py can start/check mariadb
 # python3 compose/compose.py start|status starts and checks all four services
+
+# 11/16 - Josue10-18
+# database is a Galera cluster (3 nodes planned: jxo-dev, ojo-dev, aks55-dev), cluster name arms_cluster
+# jxo-dev is node 1 and holds all the data; config template: database/galera/70-arms-galera.cnf.template
+# check the cluster: sudo mariadb -e "SHOW STATUS LIKE 'wsrep_cluster_size';"  (3 = all nodes, 2 = minimum)
+# a plain systemctl restart mariadb fails on the first node while it is alone; use sudo galera_new_cluster
