@@ -12,7 +12,7 @@ so it can be sent straight back through RabbitMQ as JSON.
 
 Connection settings come from environment variables. Never hard-code the password.
     DB_PASSWORD  (required)
-    DB_HOST      (default 10.211.59.206 = jxo-dev over ZeroTier)
+    DB_HOST      (default jxo-dev = jxo-dev over ZeroTier)
     DB_PORT      (default 3306)
     DB_USER      (default arms_app)
     DB_NAME      (default reputation_app)
@@ -32,7 +32,7 @@ ITERATIONS = 200_000
 
 def _connect():
     return pymysql.connect(
-        host=os.environ.get("DB_HOST", "10.211.59.206"),
+        host=os.environ.get("DB_HOST", "jxo-dev"),
         port=int(os.environ.get("DB_PORT", "3306")),
         user=os.environ.get("DB_USER", "arms_app"),
         password=os.environ["DB_PASSWORD"],
