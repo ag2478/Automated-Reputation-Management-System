@@ -3,11 +3,11 @@ import sys
 import os
 
 def main():
-    # 1. Set up the network credentials for RabbitMQ on the Windows Host
+    # 1. Set up the network credentials for RabbitMQ
     credentials = pika.PlainCredentials('repo_user', 'repo_pass')
 
-    # 2. Configure connection parameters (Pointing to the Windows machine)
-    parameters = pika.ConnectionParameters(host='192.168.56.1', 
+    # 2. Configure connection parameters (Pointed to Tailscale RabbitMQ broker)
+    parameters = pika.ConnectionParameters(host='ag2478-dev', 
                                            port=5672, 
                                            virtual_host='/', 
                                            credentials=credentials)

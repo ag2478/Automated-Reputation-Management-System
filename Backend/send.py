@@ -1,10 +1,10 @@
 import pika
 
-# 1. Set up the network credentials for RabbitMQ on the Windows Host
+# 1. Set up the network credentials for RabbitMQ
 credentials = pika.PlainCredentials('repo_user', 'repo_pass')
 
-# 2. Configure connection parameters (Pointing to the Windows machine)
-parameters = pika.ConnectionParameters(host='192.168.56.1', 
+# 2. Configure connection parameters (Pointed to Tailscale RabbitMQ broker)
+parameters = pika.ConnectionParameters(host='ag2478-dev', 
                                        port=5672, 
                                        virtual_host='/', 
                                        credentials=credentials)
@@ -13,11 +13,11 @@ parameters = pika.ConnectionParameters(host='192.168.56.1',
 connection = pika.BlockingConnection(parameters)
 channel = connection.channel()
 
-# 4. Declare the queue as DURABLE (Fixes the deprecation error)
+# 4. Declare the queue as DURABLE
 channel.queue_declare(queue='arms_test_queue', durable=True)
 
 # 5. Write/Publish the message to the queue
-message = 'Hello from the ARMS Backend!'
+message = 'Hello from the ARMS Backend over Tailscale!'
 channel.basic_publish(exchange='', 
                       routing_key='arms_test_queue', 
                       body=message,
