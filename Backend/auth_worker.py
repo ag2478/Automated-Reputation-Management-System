@@ -1,69 +1,59 @@
 import pika
+import mysql.connector
+import os
 import json
 import bcrypt
-import mysql.connector
-import uuid
-import os
 from dotenv import load_dotenv
 
-# Load environment variables from the .env file
 load_dotenv()
 
-# VM names, not IPs: each VM's /etc/hosts maps jxo-dev and ag2478-dev to their Tailscale IPs
 db = mysql.connector.connect(
-    host="jxo-dev", 
-    user="arms_app", 
-    password=os.getenv("ARMS_DB_PASS"), 
-    database="reputation_app"
+    host=os.getenv("DB_HOST"), 
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASS"),
+    database=os.getenv("DB_NAME")
 )
-cursor = db.cursor()
 
-credentials = pika.PlainCredentials(os.getenv('RABBITMQ_USER'), os.getenv('RABBITMQ_PASS'))
-connection = pika.BlockingConnection(pika.ConnectionParameters('ag2478-dev', credentials=credentials))
+credentials = pika.PlainCredentials(os.getenv("RMQ_USER"), os.getenv("RMQ_PASS"))
+connection = pika.BlockingConnection(
+    pika.ConnectionParameters(host=os.getenv("RMQ_HOST"), port=5672, credentials=credentials)
+)
 channel = connection.channel()
-channel.queue_declare(queue='fe_to_be_queue', durable=True)
+channel.queue_declare(queue='login_queue')
 
 def on_request(ch, method, props, body):
-    data = json.loads(body)
-    action = data.get('action')
-    response = {'status': 'error', 'message': 'Unknown action'}
+    request = json.loads(body)
+    username = request.get('username')
+    provided_password = request.get('password') 
+    
+    print(f"[.] Processing login attempt for {username}")
 
-    # reconnect if MariaDB was restarted; if it's down, answer instead of crashing
-    try:
-        db.ping(reconnect=True, attempts=2, delay=1)
-        cursor = db.cursor()
-    except Exception:
-        action = None
-        response = {'status': 'error', 'message': 'Database is down'}
+    cursor = db.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+    user = cursor.fetchone()
+    cursor.close()
 
-    if action == 'register':
-        username, email = data['username'], data['email']
-        hashed_pw = bcrypt.hashpw(data['password'].encode('utf-8'), bcrypt.gensalt())
-        try:
-            cursor.execute("INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s)", (username, email, hashed_pw.decode('utf-8')))
-            db.commit()
-            print(f"Registered {username}")
-            response = {'status': 'success'}
-        except Exception as e:
-            response = {'status': 'error', 'message': str(e)}
+    if user:
+        stored_hash = user['password_hash'].encode('utf-8')
+        
+        if bcrypt.checkpw(provided_password.encode('utf-8'), stored_hash):
+            response = {"status": "success", "message": "Login approved"}
+            print(f"[+] Login successful for {username}")
+        else:
+            response = {"status": "fail", "message": "Invalid password"}
+            print(f"[-] Invalid password for {username}")
+    else:
+        response = {"status": "fail", "message": "User not found"}
+        print(f"[-] User {username} not found")
 
-    elif action == 'login':
-        username = data['username']
-        try:
-            cursor.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
-            result = cursor.fetchone()
-            if result and bcrypt.checkpw(data['password'].encode('utf-8'), result[0].encode('utf-8')):
-                print(f"Logged in {username}")
-                response = {'status': 'success', 'sessionId': str(uuid.uuid4())}
-            else:
-                response = {'status': 'error', 'message': 'Invalid credentials'}
-        except Exception as e:
-            response = {'status': 'error', 'message': str(e)}
-
-    ch.basic_publish(exchange='', routing_key=props.reply_to, properties=pika.BasicProperties(correlation_id=props.correlation_id), body=json.dumps(response))
+    ch.basic_publish(
+        exchange='',
+        routing_key=props.reply_to,
+        properties=pika.BasicProperties(correlation_id=props.correlation_id),
+        body=json.dumps(response)
+    )
     ch.basic_ack(delivery_tag=method.delivery_tag)
 
-channel.basic_qos(prefetch_count=1)
-channel.basic_consume(queue='fe_to_be_queue', on_message_callback=on_request)
-print("Awaiting RPC requests...")
+channel.basic_consume(queue='login_queue', on_message_callback=on_request)
+print(" [x] Awaiting secure RPC requests on 'login_queue'")
 channel.start_consuming()

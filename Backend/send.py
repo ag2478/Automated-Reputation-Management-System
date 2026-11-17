@@ -1,31 +1,33 @@
 import pika
+import os
+import json
+from dotenv import load_dotenv
 
-# 1. Set up the network credentials for RabbitMQ
-credentials = pika.PlainCredentials('repo_user', 'repo_pass')
+# Load credentials from .env
+load_dotenv()
 
-# 2. Configure connection parameters (Pointed to Tailscale RabbitMQ broker)
-parameters = pika.ConnectionParameters(host='ag2478-dev', 
-                                       port=5672, 
-                                       virtual_host='/', 
-                                       credentials=credentials)
-
-# 3. Establish the authenticated connection
-connection = pika.BlockingConnection(parameters)
+# Connect to RabbitMQ
+credentials = pika.PlainCredentials(os.getenv("RMQ_USER"), os.getenv("RMQ_PASS"))
+connection = pika.BlockingConnection(
+    pika.ConnectionParameters(host=os.getenv("RMQ_HOST"), port=5672, credentials=credentials)
+)
 channel = connection.channel()
 
-# 4. Declare the queue as DURABLE
-channel.queue_declare(queue='arms_test_queue', durable=True)
+# The payload now includes a password for bcrypt to verify
+payload = {
+    "username": "admin", 
+    "password": "testpassword123"
+}
 
-# 5. Write/Publish the message to the queue
-message = 'Hello from the ARMS Backend over Tailscale!'
-channel.basic_publish(exchange='', 
-                      routing_key='arms_test_queue', 
-                      body=message,
-                      properties=pika.BasicProperties(
-                         delivery_mode=pika.DeliveryMode.Persistent
-                      ))
-
-print(f" [x] Successfully wrote '{message}' to the queue.")
-
-# 6. Close the connection
-connection.close()
+# Send the request to the queue
+channel.basic_publish(
+    exchange='',
+    routing_key='login_queue',
+    properties=pika.BasicProperties(
+        reply_to='amq.rabbitmq.reply-to', 
+        correlation_id='test-123'
+    ),
+    body=json.dumps(payload)
+)
+print(" [x] Secure login request sent to RabbitMQ!")
+connection.close()~
