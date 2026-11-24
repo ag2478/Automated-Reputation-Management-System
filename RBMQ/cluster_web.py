@@ -23,8 +23,8 @@ NODES = [
 ]
 
 LOCAL_HOST = socket.gethostname()
-RMQ_USER = os.getenv("RMQ_USER", "guest")
-RMQ_PASS = os.getenv("RMQ_PASS", "guest")
+RMQ_USER = os.getenv("RMQ_USER", "repo_user")
+RMQ_PASS = os.getenv("RMQ_PASS", "repo_pass")
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
 WEB_PORT = int(os.getenv("WEB_PORT", "8080"))
 
