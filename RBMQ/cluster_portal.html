@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Connecting to Cluster Monitor...</title>
+</head>
+<body style="font-family:system-ui;background:#0f172a;color:#e2e8f0;padding:40px;">
+  <h2>Locating a live RabbitMQ Monitor VM...</h2>
+  <p id="msg">Probing all 6 Tailscale nodes on port 8080 (6s slow-link timeout)...</p>
+  <script>
+    const nodes = [
+      "100.80.61.81",
+      "100.79.190.69",
+      "100.100.75.81",
+      "100.79.161.71",
+      "100.110.5.44",
+      "100.96.160.83"
+    ];
+    let attempt = 0;
+
+    async function connect() {
+      attempt++;
+      document.getElementById("msg").textContent =
+        `Attempt ${attempt}: Probing all 6 Tailscale nodes (waiting up to 6s for slow links)...`;
+      try {
+        const url = await Promise.any(nodes.map(async ip => {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 6000);
+          try {
+            const res = await fetch(`http://${ip}:8080/api/status`, { signal: ctrl.signal });
+            if (!res.ok) throw new Error();
+            return `http://${ip}:8080`;
+          } finally {
+            clearTimeout(timer);
+          }
+        }));
+        window.location.replace(url);
+      } catch (_) {
+        document.getElementById("msg").textContent =
+          `Attempt ${attempt} timed out. Retrying in 3s (check Tailscale status if this persists)...`;
+        setTimeout(connect, 3000);
+      }
+    }
+    connect();
+  </script>
+</body>
+</html>
