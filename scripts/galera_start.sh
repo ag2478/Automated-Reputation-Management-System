@@ -17,7 +17,7 @@
 #
 # Exit code: 0 = MariaDB running, 1 = failed or refused
 
-NODES="jxo-dev ojo-dev aks55-dev"
+NODES="jxo-dev aks55-dev ag2478-test"
 GALERA_PORT=4567
 ME="$(hostname)"
 
@@ -59,6 +59,10 @@ else
     echo "      Start the node that stopped last first, or rerun with:"
     echo "      sudo FORCE=1 $0"
     exit 1
+  fi
+
+  if [ "$FORCE" = "1" ] && [ -n "$GRASTATE" ]; then
+    sed -i 's/safe_to_bootstrap: 0/safe_to_bootstrap: 1/' "$GRASTATE"
   fi
 
   echo "[$ME] no peers are up. Bootstrapping a new cluster from this node..."
